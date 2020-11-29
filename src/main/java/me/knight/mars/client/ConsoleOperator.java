@@ -2,16 +2,24 @@ package me.knight.mars.client;
 
 import lombok.RequiredArgsConstructor;
 import me.knight.mars.entity.GridReference;
+import me.knight.mars.entity.Mars;
 import me.knight.mars.entity.Position;
 import me.knight.mars.entity.Robot;
+import me.knight.mars.orders.ForwardOrder;
+import me.knight.mars.orders.Order;
+import me.knight.mars.orders.TurnLeftOrder;
+import me.knight.mars.orders.TurnRightOrder;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.System.in;
 import static java.lang.System.out;
+import static java.util.Arrays.asList;
 import static me.knight.mars.entity.Orientation.getOrientationForDirection;
 import static me.knight.mars.util.ConsoleUtils.*;
 
@@ -20,6 +28,11 @@ import static me.knight.mars.util.ConsoleUtils.*;
 public class ConsoleOperator implements CommandLineRunner {
 
     private static final String WHITE_SPACE_SPLITTER_REGEX = "\\s";
+    private static final String CHARACTER_SPLITTER_REGEX = "(?!^)";
+
+    public static final String TURN_LEFT_ORDER = "L";
+    public static final String TURN_RIGHT_ORDER = "R";
+    public static final String MOVE_FORWARD_ORDER = "F";
 
     @Override
     public void run(String... args) {
@@ -32,6 +45,8 @@ public class ConsoleOperator implements CommandLineRunner {
 
             String coordinates = scanner.nextLine();
             validate(!coordinates.matches(VALID_AXES), INVALID_AXES_MESSAGE);
+
+            final Mars mars = new Mars(getUpperBoundsGridReference(coordinates));
 
             final AtomicBoolean isFirstRobot = new AtomicBoolean(true);
 
@@ -56,10 +71,25 @@ public class ConsoleOperator implements CommandLineRunner {
 
                     final Robot robot = getRobot(robotPosition);
 
+                    asList(instructions.split(CHARACTER_SPLITTER_REGEX))
+                            .forEach(instruction -> prepareOrderLookupTable(mars, robot)
+                                    .get(instruction)
+                                    .execute());
+
                     reportPosition(robot);
                 }
             }
         }
+    }
+
+    private Map<String, Order> prepareOrderLookupTable(Mars mars, Robot robot) {
+
+        final Map<String, Order> orders = new HashMap<>();
+
+        orders.put(TURN_LEFT_ORDER, new TurnLeftOrder(robot));
+        orders.put(TURN_RIGHT_ORDER, new TurnRightOrder(robot));
+        orders.put(MOVE_FORWARD_ORDER, new ForwardOrder(robot, mars));
+        return orders;
     }
 
     private GridReference getUpperBoundsGridReference(String coordinates) {
